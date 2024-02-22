@@ -1,0 +1,57 @@
+#zInitFile
+# yaml-language-server: $schema=schema.json
+
+version: 2.0.0
+configuration:
+  source: SDEV
+  baseDirectory: .Compilation
+  logLevel: INFO
+transferts:
+  - name: SOURCES COBOL
+    description: Sources Cobol
+    source: DTOPT.TOP.SOURCE
+    filter: "TOP*"
+    exclude:
+      - TOPDUMMY
+    destination: /SRC
+    extensionFile: .cbl
+  - name: COPYBOOK
+    description: Copybook Cobol
+    source: DTOPT.TOP.COPYBOOK
+    include:
+      - G2DCLGEN
+      - TOPC0001
+      - TOPJOURTZZZ
+      - TOPVILLE
+    destination: /CPY
+    extensionFile: .cpy
+  - name: COPYBOOK COMMUNES
+    description: Copybook Cobol communes
+    source: APP.SOURCLIB.MASTER.COPYEXPL
+    include:
+      - SY00065
+      - A1
+    destination: /CPY
+    extensionFile: .cpy
+  - name: JOB
+    description: Jobs
+    source: DTOPT.TOP.JOB
+    exclude:
+      - AUCUN
+    destination: /JOB
+    extensionFile: .jcl
+  - name: SOURCES COBOL ELO
+    description: Sources Cobol
+    source: NDV.US.PRO.BDDF01.ELO.COB62.SOURCE
+    filter: ELO*
+    exclude:
+      - AUCUN
+    destination: /ELO/SRC
+    extensionFile: .cbl
+
+hosts:
+  - name: SDEV
+    description: LPAR de développement
+    type: zos
+    hostname: sdev.dns21.socgen
+    port: 5487
