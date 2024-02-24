@@ -53,5 +53,10 @@ hosts:
   - name: SDEV
     description: LPAR de développement
     type: zos
-    hostname: sdev.dns21.socgen
+    hostname: sdev.dns21.socgen.tt
     port: 5487
+  - name: KLI
+    description: LPAR d'homologation
+    type: zos
+    hostname: kli.dns21.socgen
+    port: 7554 #7554:zowe gateway, 20443:z/OSMF
