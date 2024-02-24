@@ -2,7 +2,7 @@
 
 import { DefinedError } from "ajv";
 const Ajv = require("ajv").default;
-const fs = require("fs");
+import * as fs from "fs";
 const yaml = require("js-yaml");
 const addFormats = require("ajv-formats");
 const log = require("npmdatelog");
@@ -64,7 +64,150 @@ export const setupLogging = () => {
 // Function to load JSON schema from file
 export const loadJsonSchema = () => {
   log.info("zServices-cli", `loading json schema ./schema.json ...`);
-  const schema = require("./schema.json");
+  //const schema = require("./schema.json");
+  const schema = {
+    $schema: "http://json-schema.org/draft-07/schema#",
+    type: "object",
+    properties: {
+      version: {
+        const: "1.0.0",
+        default: "1.0.0",
+        examples: ["1.0.0"],
+        errorMessage: "Seule la version de fichier '1.0.0' est supportée !",
+      },
+      configuration: {
+        type: "object",
+        properties: {
+          source: {
+            type: "string",
+            default: "SDEV",
+            examples: ["SDEV"],
+          },
+          baseDirectory: {
+            type: "string",
+            default: "./Compilation",
+            examples: ["./Compilation"],
+            pattern: "^\\./|(\\./[a-zA-Z0-9_-]+)+$",
+          },
+          logLevel: {
+            enum: ["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "FATAL", "OFF"],
+            default: "ERROR",
+            examples: ["ERROR"],
+          },
+        },
+        required: ["source", "baseDirectory", "logLevel"],
+      },
+      transferts: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", examples: ["Name of transfert"] },
+            description: {
+              type: "string",
+              examples: ["Description of transfert"],
+            },
+            source: {
+              type: "string",
+              minLength: 1,
+              maxLength: 44,
+              pattern:
+                "^[a-zA-Z#$][a-zA-Z0-9#$-]{0,7}([.][a-zA-Z#$][a-zA-Z0-9#$-]{0,7}){0,21}$",
+              examples: ["DXXXT.XXX.SOURCES"],
+              default: "DXXXT.XXX.SOURCES",
+            },
+            filter: {
+              type: "string",
+              minLength: 1,
+              maxLength: 9,
+              pattern: "[a-zA-Z$#@?*]([a-zA-Z0-9$#@?*]{0,7})",
+              examples: ["TOP*"],
+              default: '"*"',
+            },
+            include: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 8,
+                pattern: "[a-zA-Z$#@]([a-zA-Z0-9$#@]{0,7})",
+                examples: ["TOPC0001"],
+              },
+            },
+            exclude: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 8,
+                pattern: "[a-zA-Z$#@]([a-zA-Z0-9$#@]{0,7})",
+                examples: ["TOPC0001"],
+              },
+            },
+            destination: {
+              type: "string",
+              pattern: "^/|(/[a-zA-Z0-9_-]+)+$",
+              examples: ["/SRC", "/CPY", "/JCL"],
+              default: "/SRC",
+            },
+            extensionFile: {
+              type: "string",
+              pattern: "^\\.[a-zA-Z0-9_-]+",
+              examples: [".cbl"],
+              default: ".cbl",
+            },
+          },
+          required: [
+            "name",
+            "description",
+            "source",
+            "destination",
+            "extensionFile",
+          ],
+        },
+        minItems: 1,
+      },
+      hosts: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: {
+              type: "string",
+              examples: ["Name of the host, same as configuration.source"],
+            },
+            description: {
+              type: "string",
+              examples: ["Description of the host"],
+            },
+            type: {
+              const: "zos",
+              examples: ["zos"],
+              default: "zos",
+            },
+            hostname: {
+              type: "string",
+              format: "hostname",
+              examples: ["sdev.dns21.socgen"],
+              default: "sdev.dns21.socgen",
+            },
+            port: {
+              type: "integer",
+              minimum: 1,
+              maximum: 65535,
+              errorMessage: "Le port doit être compris entre 1 et 65535",
+              examples: ["12345"],
+              default: "12345",
+            },
+          },
+          required: ["name", "description", "type", "hostname", "port"],
+        },
+        minItems: 1,
+      },
+    },
+    required: ["version", "configuration", "transferts", "hosts"],
+  };
+
   log.info("zServices-cli", `loading json schema, Done : ok`);
   return schema;
 };
@@ -72,15 +215,28 @@ export const loadJsonSchema = () => {
 // Function to load YAML configuration file
 export const loadYamlConfig = (fileName: string) => {
   log.info("zServices-cli", `loading configuration file ${fileName} ...`);
-  const yamlContent = fs.readFileSync(
-    process.cwd() + "/bin/" + `.zservices/zinit/configuration/${fileName}`,
-    "utf-8"
-  );
-  log.info(
-    "zServices-cli",
-    `loading configuration file ${fileName}, Done : ok`
-  );
-  return yaml.load(yamlContent);
+  try {
+    const yamlContent = fs.readFileSync(
+      `.zservices/zinit/configuration/${fileName}`,
+      "utf-8"
+    );
+    log.info(
+      "zServices-cli",
+      `loading configuration file ${fileName}, Done : ok`
+    );
+    return yaml.load(yamlContent);
+  } catch (error: any) {
+    if (error && error.code) {
+      log.error("zServices-cli", `File ${fileName} not found !`);
+    } else {
+      log.error(
+        "zServices-cli",
+        `An error occured when trying reading file ${fileName}`
+      );
+    }
+    log.fatal("zServices-cli", `Aborting process with return code(1) !`);
+    process.exit(1);
+  }
 };
 
 // Function to validate configuration against JSON schema

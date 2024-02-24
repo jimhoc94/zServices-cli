@@ -53,7 +53,7 @@ hosts:
   - name: SDEV
     description: LPAR de développement
     type: zos
-    hostname: sdev.dns21.socgen
+    hostname: sdev.dns21.socgen.tt
     port: 5487
   - name: KLI
     description: LPAR d'homologation
