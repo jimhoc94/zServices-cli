@@ -1,4 +1,3 @@
-npm run build
-zservices-cli init -u a486042 -p orange01
+# zServices-cli
 
-ts-node src/zservices-cli.ts init -u a486042 -p orange01
+type : npx zservices-cli to launch.

@@ -229,10 +229,11 @@ export const loadYamlConfig = (fileName: string) => {
     if (error && error.code) {
       log.error("zServices-cli", `File ${fileName} not found !`);
     } else {
-      log.error(
+      log.debug(
         "zServices-cli",
         `An error occured when trying reading file ${fileName}`
       );
+      log.error("zServices-cli", `${error.message}`);
     }
     log.fatal("zServices-cli", `Aborting process with return code(1) !`);
     process.exit(1);
@@ -407,6 +408,7 @@ export const processLoop = async (user: string, password: string) => {
             .finally(function () {
               // dans tous les cas
             });
+          n;
         }
       })
       .catch(function (error) {
