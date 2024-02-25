@@ -301,6 +301,7 @@ export const processLoop = async (user: string, password: string) => {
     let name = transferts[transfert].name;
     let PDS = transferts[transfert].source;
     let filter = transferts[transfert].filter;
+    if (filter === undefined) filter = "";
     let destination = transferts[transfert].destination;
     let extension = transferts[transfert].extensionFile;
     let filesExluded = transferts[transfert].exclude;
@@ -308,123 +309,129 @@ export const processLoop = async (user: string, password: string) => {
     let hostname = hosts[transfert].hostname;
     let port = hosts[transfert].port;
 
-    if (filter === undefined) filter = "";
-    log.info("zServices-cli", `Transfert ${name}, PDS source : ${PDS}`);
+    let members: string[] = [];
 
-    await axios
-      .get(
-        "https://" +
-          hostname +
-          ":" +
-          port +
-          "/ibmzosmf/api/v1/zosmf/restfiles/ds/" +
-          PDS +
-          "/member?pattern=" +
-          filter,
-        {
-          auth: {
-            username: user,
-            password: password,
-          },
-        }
-      )
-      .then(function (response) {
-        // en cas de réussite de la requête
-        let members: string[] = [];
-
-        if (filesIncluded !== undefined) {
-          for (let file in filesIncluded) {
-            members.push(filesIncluded[file]);
+    if (filesIncluded !== undefined) {
+      for (let file in filesIncluded) {
+        members.push(filesIncluded[file]);
+      }
+    } else {
+      await axios
+        .get(
+          "https://" +
+            hostname +
+            ":" +
+            port +
+            "/ibmzosmf/api/v1/zosmf/restfiles/ds/" +
+            PDS +
+            "/member?pattern=" +
+            filter,
+          {
+            auth: {
+              username: user,
+              password: password,
+            },
           }
-        }
-        if (filesExluded !== undefined) {
-          let items = response.data.items;
-          for (let item in items) {
-            members.push(items[item].member);
-          }
-          for (let exclude in filesExluded) {
-            let myIndex = members.indexOf(filesExluded[exclude]);
-            if (myIndex !== -1) {
-              members.splice(myIndex, 1);
+        )
+        .then(function (response) {
+          // en cas de réussite de la requête
+          // on remplis le tableau members avec le résultat de la requete
+          // Si des fichiers à exclure on purge la liste
+          if (filesExluded !== undefined) {
+            let items = response.data.items;
+            for (let item in items) {
+              members.push(items[item].member);
+            }
+            for (let exclude in filesExluded) {
+              let myIndex = members.indexOf(filesExluded[exclude]);
+              if (myIndex !== -1) {
+                members.splice(myIndex, 1);
+              }
             }
           }
-        }
+        })
+        .catch(function (error) {
+          // en cas d’échec de la requête
+          if (error.errno === -3008 && error.code === "ENOTFOUND") {
+            log.error(
+              "zServices-cli",
+              `host ${hostname} on port ${port} not reachable`
+            );
+            log.fatal(
+              "zServices-cli",
+              `Aborting process with return code (1) !`
+            );
+            process.exit(1);
+          }
+        })
+        .finally(function () {
+          // dans tous les cas
+        });
+    }
 
-        if (!fs.existsSync(configuration.baseDirectory + destination)) {
-          fs.mkdirSync(configuration.baseDirectory + destination, {
-            recursive: true,
-          });
-        }
+    log.info("zServices-cli", `Transfert ${name}, PDS source : ${PDS}`);
 
-        for (let member in members) {
-          console.log(
-            "  Récupération et écriture en local du membre : " + members[member]
-          );
-          axios
-            .get(
-              "https://" +
-                hostname +
-                ":" +
-                port +
-                "/ibmzosmf/api/v1/zosmf/restfiles/ds/" +
-                PDS +
-                "(" +
-                members[member] +
-                ")",
-              {
-                auth: {
-                  username: user,
-                  password: password,
-                },
-              }
-            )
-            .then(function (response) {
-              // en cas de réussite de la requête
-              fs.writeFileSync(
-                configuration.baseDirectory +
-                  "/" +
-                  destination +
-                  "/" +
-                  members[member] +
-                  extension,
-                response.data
-              );
-              console.log(" Done");
-            })
-            .catch(function (error) {
-              // en cas d’échec de la requête
-              if (error.errno === -3008 && error.code === "ENOTFOUND") {
-                log.error(
-                  "zServices-cli",
-                  `host ${hostname} on port ${port} not reachable`
-                );
-                log.fatal(
-                  "zServices-cli",
-                  `Aborting process with return code (1) !`
-                );
-                process.exit(1);
-              }
-            })
-            .finally(function () {
-              // dans tous les cas
-            });
-          n;
-        }
-      })
-      .catch(function (error) {
-        // en cas d’échec de la requête
-        if (error.errno === -3008 && error.code === "ENOTFOUND") {
-          log.error(
-            "zServices-cli",
-            `host ${hostname} on port ${port} not reachable`
-          );
-          log.fatal("zServices-cli", `Aborting process with return code (1) !`);
-          process.exit(1);
-        }
-      })
-      .finally(function () {
-        // dans tous les cas
+    if (!fs.existsSync(configuration.baseDirectory + destination)) {
+      fs.mkdirSync(configuration.baseDirectory + destination, {
+        recursive: true,
       });
+    }
+
+    for (let member in members) {
+      axios
+        .get(
+          "https://" +
+            hostname +
+            ":" +
+            port +
+            "/ibmzosmf/api/v1/zosmf/restfiles/ds/" +
+            PDS +
+            "(" +
+            members[member] +
+            ")",
+          {
+            auth: {
+              username: user,
+              password: password,
+            },
+          }
+        )
+        .then(function (response) {
+          // en cas de réussite de la requête
+          log.info(
+            "zServices-cli",
+            `Récupération du membre ${members[member]}`
+          );
+          fs.writeFileSync(
+            configuration.baseDirectory +
+              "/" +
+              destination +
+              "/" +
+              members[member] +
+              extension,
+            response.data
+          );
+          log.info(
+            "zServices-cli",
+            `Ecriture en local du membre ${members[member]}`
+          );
+        })
+        .catch(function (error) {
+          // en cas d’échec de la requête
+          // à compléter
+          if (error.errno === -3008 && error.code === "ENOTFOUND") {
+            log.error(
+              "zServices-cli",
+              `host ${hostname} on port ${port} not reachable`
+            );
+            log.fatal(
+              "zServices-cli",
+              `Aborting process with return code (1) !`
+            );
+            process.exit(1);
+          }
+        });
+    }
   }
 };
 
