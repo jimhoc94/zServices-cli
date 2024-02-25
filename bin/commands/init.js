@@ -227,7 +227,8 @@ var loadYamlConfig = function (fileName) {
             log.error("zServices-cli", "File ".concat(fileName, " not found !"));
         }
         else {
-            log.error("zServices-cli", "An error occured when trying reading file ".concat(fileName));
+            log.debug("zServices-cli", "An error occured when trying reading file ".concat(fileName));
+            log.error("zServices-cli", "".concat(error.message));
         }
         log.fatal("zServices-cli", "Aborting process with return code(1) !");
         process.exit(1);
